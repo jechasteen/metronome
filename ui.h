@@ -72,11 +72,9 @@ void print_meter(int y, int x, int bar, int unit)
 
 void print_controls(int max_y, int max_x, std::vector<std::string> controls)
 {
-    const int offset = controls[0].find('-') + 1;
-    const int x_pos = (max_x - controls[0].length()) / 2;
     for (unsigned int i = 0; i < controls.size(); i++)
     {
-        mvprintw(max_y - (i+1), x_pos + offset, controls[i].c_str());
+        mvprintw(max_y - (i+1), 0, controls[i].c_str());
     }
 }
 
