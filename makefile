@@ -3,7 +3,8 @@ CXX_FLAGS=-Wall -Wextra -lncurses
 
 OUT=metronome
 
-FILES=main.cpp
+FILES=\
+	main.cpp
 
 all:
 	$(CXX) $(CXX_FLAGS) -o $(OUT) $(FILES)

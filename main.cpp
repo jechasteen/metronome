@@ -2,137 +2,169 @@
 #include <ctime>
 #include <string>
 #include <sstream>
-#include <ncurses.h>
+#include <sys/stat.h>
+
+#include "ui.h"
 
 #define ACCENT "/usr/share/hydrogen/data/drumkits/GMRockKit/HatClosed-Hard.wav"
 #define NORMAL "/usr/share/hydrogen/data/drumkits/GMRockKit/HatClosed-Soft.wav"
 
-double get_ms()
+double time_ms()
 {
-    return (((double)std::clock()) / CLOCKS_PER_SEC) * 1000;
+    return ( ((double)std::clock() / CLOCKS_PER_SEC) * 1000 );
 }
 
-double get_tempo_ms(int bpm)
+double tempo_ms(int bpm)
 {
-    return 60000 / bpm;
+    return (60000 / bpm); 
 }
 
-void beep(std::string filename)
+void play(std::string filename)
 {
+    std::string default_sound = "beep.wav";
     std::stringstream command;
-    command << "aplay " << filename << " > /dev/null 2>&1 &";
-    system(command.str().c_str());
-    flash();
-}
-
-void setup_ncurses()
-{
-    initscr();
-    raw();
-    keypad(stdscr, TRUE);
-    noecho();
-    nodelay(stdscr, true);
-}
-
-void stop_ncurses()
-{
-    endwin();
-}
-
-void print_bpm(int bpm, int y, int x)
-{
-    mvprintw(0, x / 2, std::to_string(bpm).c_str());
-}
-
-void print_meter(int bar, int beats, int y, int x)
-{
-    std::stringstream meter;
-    meter << std::to_string(beats) << "/" << std::to_string(bar);
-    mvprintw(1, x / 2, meter.str().c_str()); 
-}
-
-void print_controls(int y, int x)
-{
-    std::string controls[3] {
-        "Left/Right - Increase/Decrease beats per bar",
-        "   Up/Down - Increase/Decrease Tempo",
-        "         q - quit"
-    };
-    for (int i = 0; i < 3; i++)
+    struct stat buf;
+    if (stat(filename.c_str(), &buf) == 0)
     {
-        mvprintw(y - (i+1), 0, controls[i].c_str());
+        command << "aplay " << filename << " > /dev/null 2>&1 &";
     }
+    else
+    {
+        command << "aplay " << default_sound << " > /dev/null 2>&1 &";
+    }
+    system(command.str().c_str());
 }
 
-void draw(int bpm, int beats, int bar)
+std::string usage()
 {
-    int y, x;
-    getmaxyx(stdscr, y, x);
-    clear();
-    print_bpm(bpm, y, x);
-    print_meter(beats, bar, y, x);
-    print_controls(y, x);
-    wrefresh(stdscr);
+    return
+    "Usage: metronome TEMPO BAR UNIT\n"
+    "e.g. 'metronome 120 4 4' or 'metronome' (defaults)\n";
+}
+
+// Set state from command line args
+state set_state(char* argv[])
+{
+    state s = {
+        .running = false,
+        .ref = time_ms(),
+        .cur = 0.0,
+        .bpm = atoi(argv[1]),
+        .tempo_ms = tempo_ms(s.bpm),
+        .bar = atoi(argv[2]),
+        .unit = atoi(argv[3]),
+        .current_beat = 0,
+    };
+    return s;
+}
+
+// set state to defaults;
+state set_state()
+{
+    state s = {
+        .running = false,
+        .ref = time_ms(),
+        .cur = 0.0,
+        .bpm = 120,
+        .tempo_ms = tempo_ms(s.bpm),
+        .bar = 4,
+        .unit = 4,
+        .current_beat = 0,
+    };
+    return s;
 }
 
 int main(int argc, char* argv[])
 {
-    // TODO: Handle command line args better
-    if (argc < 4) return 1;
-    if (argc > 1 && argc != 4) return 1;
+    state s;
+    state original;
+    int ch; // keypress
 
-    setup_ncurses();
-
-    double ref = get_ms();
-    int tempo_bpm = atoi(argv[1]);
-    double tempo_ms = get_tempo_ms(tempo_bpm);
-    int bar = atoi(argv[2]);
-    int beat = atoi(argv[3]);
-    int current_beat = 1;
-    int ch = 0;
-   
-    beep(ACCENT);   // We beep once to begin with so we don't have to wait a whole beat
-    draw(tempo_bpm, beat, bar); 
-
-    while ((ch = getch()) != 'q')
+    if ( ((argc < 4) && (argc != 1)) || ((argc > 1) && (argc != 4)) )
     {
-        if (ch == KEY_UP)
-        {
-            tempo_bpm++;
-            tempo_ms = get_tempo_ms(tempo_bpm);
-        }
-        if (ch == KEY_DOWN)
-        {
-            tempo_bpm--;
-            tempo_ms = get_tempo_ms(tempo_bpm);
-        }
-        if (ch == KEY_LEFT)
-        {
-            bar--;
-            current_beat = 0;
-        }
-        if (ch == KEY_RIGHT)
-        {
-            bar++;
-            current_beat = 0;
-        }
-        // If a key was pressed, refresh the screen
-        if (ch != ERR )
-        {
-            draw(tempo_bpm, beat, bar);
-        }
-
-        double cur = get_ms(); 
-        if (cur - ref >= tempo_ms)
-        {
-            //std::cout << "current: " << cur << " reference: " << ref << " tempo: " << tempo_ms << std::endl;
-            beep(current_beat == 0 ? ACCENT : NORMAL);
-            ref = get_ms();
-            if (current_beat == bar - 1) current_beat = 0;
-            else current_beat++;
-        }
+        std::cout << usage();
+        return 1;
     }
 
-    stop_ncurses();
+    if (argc == 1)
+        s = set_state();
+    else if (argc == 4)
+        s = set_state(argv);
+
+    original = s;
+
+    curs::setup();
+    curs::draw(&s);
+    ch = getch();
+    
+    while ( (ch != 'q') && (ch != 'Q') )
+    {
+        switch (ch)
+        {
+        case KEY_UP:
+            s.bpm++;
+            s.tempo_ms = tempo_ms(s.bpm);
+            break;
+        case KEY_DOWN:
+            s.bpm--;
+            s.tempo_ms = tempo_ms(s.bpm);
+            break;
+        case KEY_LEFT:
+            if (s.bar > 1)
+            {
+                s.bar--;
+                s.current_beat = 0;
+            }
+            break;
+        case KEY_RIGHT:
+            s.bar++;
+            s.current_beat = 0;
+            break;
+        case KEY_PPAGE:
+            if (s.unit < 64)
+            {
+                s.unit *= 2;
+                s.current_beat = 0;
+            }
+            break;
+        case KEY_NPAGE:
+            if (s.unit != 1)
+            {
+                s.unit /= 2;
+                s.current_beat = 0;
+            }
+            break;
+        case ' ':
+            if (s.running)
+                s.running = false;
+            else
+                s.running = true;
+            break;
+        }
+
+        // redraw if a key was pressed
+        if (ch != ERR)
+            curs::draw(&s);
+
+        if (s.running)
+        {
+            s.cur = time_ms();
+
+            if ( (s.cur - s.ref) >= (s.tempo_ms / (s.unit / 4)) )
+            {
+                play((s.current_beat == 0) ? ACCENT : NORMAL);
+                s.ref = time_ms();
+                if (s.current_beat == (s.bar - 1))
+                    s.current_beat = 0;
+                else
+                    s.current_beat++;
+            }
+        }
+
+        ch = getch();
+    }
+
+    curs::teardown();
+
     return 0;
 }
