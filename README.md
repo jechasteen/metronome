@@ -2,6 +2,8 @@
 
 A dead-simple ncurses metronome.
 
+![metronome screenshot](screenshot.png)
+
 build: `g++ -lncurses -o metronome main.cpp` or `make`
 
 run: `metronome $TEMPO $BEATS_PER_BAR $BEAT_VALUE` e.g. `./metronome 120 4 4`
