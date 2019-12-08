@@ -19,6 +19,11 @@ double tempo_ms(int bpm)
     return (60000 / bpm); 
 }
 
+int tempo_ms_to_bpm(double ms)
+{
+    return static_cast<int>( (60 / ms) * 1000 );
+}
+
 void play(std::string filename)
 {
     std::string default_sound = "beep.wav";
@@ -140,6 +145,12 @@ int main(int argc, char* argv[])
             else
                 s.running = true;
             break;
+        case 'T':
+        case 't':
+            s.taps.b = time_ms();
+            s.tempo_ms = s.taps.b - s.taps.a;
+            s.bpm = tempo_ms_to_bpm(s.tempo_ms);
+            s.taps.a = s.taps.b;
         }
 
         // redraw if a key was pressed
