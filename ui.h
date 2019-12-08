@@ -63,7 +63,7 @@ void print_meter(int y, int x, int bar, int unit)
 
 void print_controls(int y, int x, std::vector<std::string> controls)
 {
-    for (int i = 0; i < controls.size(); i++)
+    for (unsigned int i = 0; i < controls.size(); i++)
     {
         mvprintw(y - (i + 1), x, controls[i].c_str());
     }
