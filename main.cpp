@@ -164,6 +164,7 @@ int main(int argc, char* argv[])
             if ( (s.cur - s.ref) >= (s.tempo_ms / (s.unit / 4)) )
             {
                 play((s.current_beat == 0) ? ACCENT : NORMAL);
+                curs::print_beat_view(s.bar, s.current_beat);
                 s.ref = time_ms();
                 if (s.current_beat == (s.bar - 1))
                     s.current_beat = 0;
